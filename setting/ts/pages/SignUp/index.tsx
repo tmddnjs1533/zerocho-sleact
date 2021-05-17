@@ -1,29 +1,70 @@
 import React, { useCallback, useState } from 'react';
 import { Form, Label, Input, LinkContainer, Button, Header, Success, Error } from '@pages/SignUp/styles';
-import { Link } from 'react-router-dom';
+import { Link, Redirect } from 'react-router-dom';
+import useInput from '@hooks/useInput';
+import axios from 'axios';
+import useSWR from 'swr';
+import fetcher from '@utils/fetcher';
 
 const SignUp = () => {
-  const [email, setEmail] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordCheck, setPasswordCheck] = useState('');
-  const onChangeEmail = useCallback((e) => {
-    setEmail(e.target.value);
-  }, []);
-  const onChangeNickname = useCallback((e) => {
-    setNickname(e.target.value);
-  }, []);
-  const onChangePassword = useCallback((e) => {
-    setPassword(e.target.value);
-  }, []);
-  const onChangePasswordCheck = useCallback((e) => {
-    setPasswordCheck(e.target.value);
-  }, []);
-  const onSubmit = useCallback(() => {}, []);
+  const { data, error, revalidate } = useSWR('/api/users', fetcher);
 
-  let mismatchError;
-  let signUpError;
-  let signUpSuccess;
+  const [email, onChangeEmail] = useInput('');
+  const [nickname, onChangeNickname] = useInput('');
+  const [password, , setPassword] = useInput('');
+  const [passwordCheck, , setPasswordCheck] = useInput('');
+  const [mismatchError, setMismatchError] = useState(false); // useState 의 set함수는 바뀌지 않음
+  const [signUpError, setSignUpError] = useState('');
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
+
+  const onChangePassword = useCallback(
+    (e) => {
+      setPassword(e.target.value);
+      setMismatchError(e.target.value !== passwordCheck);
+    },
+    [passwordCheck],
+  );
+  const onChangePasswordCheck = useCallback(
+    (e) => {
+      setPasswordCheck(e.target.value);
+      setMismatchError(e.target.value !== password);
+    },
+    [password],
+  );
+  const onSubmit = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (!mismatchError) {
+        console.log('서버로 회원가입하기');
+        setSignUpError(''); // 비동기 요청 안에 setState 함수가 있으면 비동기 요청 전에 초기화해줌
+        setSignUpSuccess(false);
+        axios
+          .post('/api/users', {
+            // webpack dev server 설정 참고. 프록시 설정
+            email,
+            nickname,
+            password,
+          })
+          .then((response) => {
+            setSignUpSuccess(true);
+          })
+          .catch((error) => {
+            setSignUpError(error.response.data);
+          })
+          .finally(() => {}); // try catch 도 생김
+      }
+    },
+    [email, nickname, password, passwordCheck, mismatchError],
+  );
+
+  if (data === undefined) {
+    return <div>로딩중...</div>;
+  }
+
+  if (data) {
+    return <Redirect to="/workspace/sleact/channel/일반" />;
+  }
+
   return (
     <div id="container">
       <Header>Sleact</Header>
